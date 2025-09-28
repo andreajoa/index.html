@@ -1331,23 +1331,130 @@
 
         // Export functions
         function exportData(format) {
-            const data = {
-                patients: patients,
-                analyses: analyses,
-                interventions: interventions,
-                exportDate: new Date().toISOString()
-            };
+            const currentDate = new Date().toISOString().split('T')[0];
             
-            const dataStr = JSON.stringify(data, null, 2);
-            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            if (format === 'pdf') {
+                exportToPDF();
+            } else if (format === 'excel') {
+                exportToExcel();
+            } else if (format === 'csv') {
+                exportToCSV();
+            }
             
+            showNotification(`✅ Dados exportados com sucesso em formato ${format.toUpperCase()}!`, 'success');
+        }
+
+        function exportToPDF() {
+            // Create PDF content
+            const pdfContent = `
+                PROTOCOLO ABC NEURODIVERGENTE - RELATÓRIO COMPLETO
+                ================================================
+                Data de Exportação: ${new Date().toLocaleDateString('pt-BR')}
+                
+                RESUMO GERAL
+                ------------
+                Total de Pacientes: ${patients.length}
+                Total de Análises: ${analyses.length}
+                Total de Intervenções: ${interventions.length}
+                
+                PACIENTES CADASTRADOS
+                --------------------
+                ${patients.map(p => `
+                Nome: ${p.name}
+                Idade: ${p.age} anos
+                Diagnóstico: ${getDiagnosisLabel(p.diagnosis)}
+                Progresso: ${p.progress}%
+                Última Sessão: ${formatDate(p.lastSession)}
+                Observações: ${p.notes}
+                ----------------------------------------`).join('\n')}
+                
+                ANÁLISES COMPORTAMENTAIS RECENTES
+                --------------------------------
+                ${analyses.slice(-10).map(a => `
+                Paciente: ${a.patientName}
+                Data: ${formatDate(a.timestamp)}
+                Comportamento: ${a.behaviorType}
+                Intensidade: ${a.intensity}/10
+                Duração: ${a.duration} minutos
+                Descrição: ${a.behaviorDescription}
+                ----------------------------------------`).join('\n')}
+                
+                INTERVENÇÕES DISPONÍVEIS
+                -----------------------
+                ${interventions.map(i => `
+                Nome: ${i.name}
+                Categoria: ${getCategoryLabel(i.category)}
+                Descrição: ${i.description}
+                ----------------------------------------`).join('\n')}
+                
+                Relatório gerado automaticamente pelo Sistema Protocolo ABC Neurodivergente
+            `;
+            
+            const blob = new Blob([pdfContent], { type: 'text/plain;charset=utf-8' });
             const link = document.createElement('a');
-            link.href = URL.createObjectURL(dataBlob);
-            link.download = `protocolo_abc_export_${format}_${new Date().toISOString().split('T')[0]}.json`;
+            link.href = URL.createObjectURL(blob);
+            link.download = `protocolo_abc_relatorio_${new Date().toISOString().split('T')[0]}.txt`;
             link.click();
+        }
+
+        function exportToExcel() {
+            // Create Excel-compatible CSV with tabs
+            let excelContent = "PROTOCOLO ABC NEURODIVERGENTE - DADOS COMPLETOS\n\n";
             
-            // Show success message
-            alert(`✅ Dados exportados com sucesso em formato ${format.toUpperCase()}!`);
+            // Patients sheet
+            excelContent += "PACIENTES\n";
+            excelContent += "ID\tNome\tIdade\tDiagnóstico\tProgresso\tÚltima Sessão\tObservações\n";
+            patients.forEach(p => {
+                excelContent += `${p.id}\t${p.name}\t${p.age}\t${getDiagnosisLabel(p.diagnosis)}\t${p.progress}%\t${formatDate(p.lastSession)}\t${p.notes}\n`;
+            });
+            
+            excelContent += "\n\nANÁLISES COMPORTAMENTAIS\n";
+            excelContent += "Paciente\tData\tHorário\tComportamento\tIntensidade\tDuração\tFrequência\tDescrição\tAmbiente\n";
+            analyses.forEach(a => {
+                excelContent += `${a.patientName}\t${formatDate(a.timestamp)}\t${a.timeOfDay}\t${a.behaviorType}\t${a.intensity}\t${a.duration}\t${a.frequency}\t${a.behaviorDescription.replace(/\n/g, ' ')}\t${a.environment}\n`;
+            });
+            
+            excelContent += "\n\nINTERVENÇÕES\n";
+            excelContent += "ID\tNome\tCategoria\tDescrição\tPassos\n";
+            interventions.forEach(i => {
+                excelContent += `${i.id}\t${i.name}\t${getCategoryLabel(i.category)}\t${i.description.replace(/\n/g, ' ')}\t${i.steps.replace(/\n/g, ' | ')}\n`;
+            });
+            
+            const blob = new Blob([excelContent], { type: 'application/vnd.ms-excel;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `protocolo_abc_dados_${new Date().toISOString().split('T')[0]}.xls`;
+            link.click();
+        }
+
+        function exportToCSV() {
+            // Create proper CSV format
+            let csvContent = "";
+            
+            // Patients CSV
+            csvContent += "PACIENTES\n";
+            csvContent += "ID,Nome,Idade,Diagnóstico,Progresso,Última Sessão,Observações\n";
+            patients.forEach(p => {
+                csvContent += `${p.id},"${p.name}",${p.age},"${getDiagnosisLabel(p.diagnosis)}","${p.progress}%","${formatDate(p.lastSession)}","${p.notes.replace(/"/g, '""')}"\n`;
+            });
+            
+            csvContent += "\n\nANÁLISES COMPORTAMENTAIS\n";
+            csvContent += "Paciente,Data,Horário,Comportamento,Intensidade,Duração,Frequência,Descrição,Ambiente\n";
+            analyses.forEach(a => {
+                csvContent += `"${a.patientName}","${formatDate(a.timestamp)}","${a.timeOfDay}","${a.behaviorType}",${a.intensity},${a.duration},${a.frequency},"${a.behaviorDescription.replace(/"/g, '""')}","${a.environment}"\n`;
+            });
+            
+            csvContent += "\n\nINTERVENÇÕES\n";
+            csvContent += "ID,Nome,Categoria,Descrição,Passos\n";
+            interventions.forEach(i => {
+                csvContent += `${i.id},"${i.name}","${getCategoryLabel(i.category)}","${i.description.replace(/"/g, '""')}","${i.steps.replace(/"/g, '""').replace(/\n/g, ' | ')}"\n`;
+            });
+            
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `protocolo_abc_dados_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
         }
 
         function exportAnalysis() {
@@ -1729,5 +1836,5 @@
             }
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'985f05fe349c16d6',t:'MTc1OTAxODI4NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'985f2dce14cbc2f3',t:'MTc1OTAxOTkxNi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
